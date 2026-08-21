@@ -7,7 +7,7 @@
         "Version": "1.0",
         "Category": "Utilities",
         "Icon": "network-server",
-        "Website": "https://github.com/de-andreluiz"
+        "Website": "https://github.com/de-andreluiz/token-monitor"
     },
     "X-Plasma-API-Minimum-Version": "6.0"
 }
