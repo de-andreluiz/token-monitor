@@ -1,0 +1,13 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "com.andreluiz.llmquota",
+        "Name": "LLM Quota Monitor",
+        "Description": "Monitora limites de tokens da API do Claude, OpenAI e Gemini.",
+        "Version": "1.0",
+        "Category": "Utilities",
+        "Icon": "network-server",
+        "Website": "https://github.com/de-andreluiz"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

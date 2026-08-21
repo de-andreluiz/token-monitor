@@ -1,0 +1,8 @@
+# Editores/SO
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Nunca versionar credenciais/config local
+secrets.json

@@ -1,0 +1,331 @@
+RESUMO DO PROJETO — LLM Quota Monitor (Plasmoid KDE Plasma 6)
+================================================================
+Registro detalhado de tudo o que foi feito nesta conversa, do início ao
+estado atual. Serve como referência caso o contexto se perca ou para
+retomar o trabalho em outra sessão.
+
+
+1. PONTO DE PARTIDA
+--------------------
+Já existia um plasmoid funcional (metadata.json + contents/ui/main.qml)
+monitorando visualmente o uso de tokens de LLMs (Claude/OpenAI/Gemini),
+inspirado num widget nativo Android (Jetpack Glance/Compose) feito pelo
+usuário para o próprio celular. A base já resolvia:
+  - Layout não sendo espremido no plasmoidviewer (Layout.minimumWidth/Height
+    + Layout.preferredWidth/Height no lugar de implicitWidth/Height).
+  - Cores hexadecimais literais simulando "modo claro" (tema do sistema
+    Plasma estava falhando no ambiente de teste).
+  - Header com nome do provedor, ícone de refresh e BusyIndicator.
+  - Dois cards (Sessão atual / Limites semanais) com ProgressBar nativa do
+    PlasmaComponents3, título, porcentagem e textos de reset/horário.
+
+
+2. REFINAMENTO VISUAL "PREMIUM" (pedido inicial)
+--------------------------------------------------
+Objetivo: deixar a UI com aparência idêntica ao widget Android de
+referência (prints/tweets do Gustavo Carvalho mostrados no início).
+
+Mudanças aplicadas em contents/ui/main.qml e novos componentes:
+  - Sombra: DropShadow (Qt5Compat.GraphicalEffects) no card principal,
+    simulando elevação Material Design.
+  - contents/ui/RoundedProgressBar.qml (novo): barra de progresso custom
+    via dois Rectangle (trilha + preenchimento) com radius: height/2
+    (cantos 100% arredondados) e Behavior on width animado (350-450ms,
+    Easing.OutCubic) — substitui a ProgressBar nativa do Plasma.
+  - contents/ui/UsageCard.qml (novo): card reutilizável (título, %, barra,
+    textos de reset) usado duas vezes (Sessão atual / Limites semanais),
+    evitando duplicação de QML.
+  - Tipografia: font.weight: Font.DemiBold no lugar de font.bold: true
+    (peso intermediário, mais "soft"), depois trocado por font.bold: true
+    puro nos textos em "Noto Serif" (explicado no item 4 — DemiBold nessa
+    fonte específica não existe de verdade e o Qt sintetizava um peso
+    deformado).
+  - Botão de refresh "flat": Kirigami.Icon + MouseArea customizados no
+    lugar do ToolButton padrão do Plasma (sem moldura), com feedback de
+    opacidade no hover e "squish" de escala no clique.
+  - Margens/espaçamentos ajustados para todos os elementos "respirarem".
+
+
+3. TELA DE CONFIGURAÇÃO ("Configurar Widget…")
+--------------------------------------------------
+Baseado no print da tela de config do app Android (seletor de provedor,
+preview ao vivo, tema Claro/Escuro, roda de cores de fundo), foi
+construída a primeira config funcional do plasmoid, seguindo a
+convenção padrão do Plasma 6 (kcfg + ConfigModel + página QML):
+
+  - contents/config/main.xml (novo): schema kcfg com as chaves
+    provider, theme, bgColorLight, bgColorDark (String).
+  - contents/config/config.qml (novo): ConfigModel/ConfigCategory
+    apontando pra config/ConfigGeneral.qml.
+  - contents/ui/config/ConfigGeneral.qml (novo): página com
+      - Pills de seleção de provedor (Claude/Codex/Gemini).
+      - Preview ao vivo do card reaproveitando UsageCard.qml.
+      - Toggle Claro/Escuro.
+      - Roda de cores (ver item abaixo).
+  - contents/ui/ColorWheel.qml (novo): roda de cores HSV desenhada via
+    Canvas (matiz no ângulo, saturação no raio), com seletor arrastável
+    via MouseArea — implementação própria, sem diálogo nativo do Qt.
+  - contents/ui/Providers.js (novo, .pragma library): lista de
+    provedores (id, name, glyph, color) + função byId() — fonte única
+    de verdade compartilhada entre main.qml e a config.
+
+Bug corrigido: inicialmente a cor de fundo (bgColor) era um valor único
+fixo (#ffffff por padrão), então trocar pra tema Escuro deixava texto
+claro sobre fundo ainda branco (quase ilegível, visto em prints do
+usuário). Corrigido separando em bgColorLight/bgColorDark — cada tema
+guarda e edita sua própria cor via a mesma roda.
+
+Bug corrigido: preview da config tinha altura fixa (210px) menor que o
+conteúdo real, cortando o card "Sessão atual". Trocado para altura
+dinâmica (previewColumn.implicitHeight + 36).
+
+Depois foi adicionado suporte a brilho na roda de cores (o valor HSV
+estava fixo em 1.0, impossibilitando escolher preto/cinza/tons
+escurecidos) — ColorWheel.qml virou um ColumnLayout com a roda + um
+Slider de brilho (☀ — ☀) abaixo.
+
+
+4. ÍCONES E LOGOS OFICIAIS (SVG)
+--------------------------------------------------
+O usuário baixou os SVGs oficiais de cada provedor (ícone-símbolo e
+wordmark/logotipo):
+  contents/images/claude.svg, claude-text.svg
+  contents/images/codex.svg (renomeado de codex-color.svg), codex-text.svg
+  contents/images/gemini.svg, gemini-text.svg
+
+Novos componentes:
+  - contents/ui/ProviderIcon.qml: usa o SVG do ícone-símbolo
+    (Providers.js -> icon), com fallback pro glifo emoji se o arquivo
+    não existir.
+  - contents/ui/ProviderWordmark.qml: usa o SVG do logotipo/wordmark.
+    Como esses arquivos vêm com fill="currentColor" (renderiza preto
+    fixo fora de contexto CSS), foi aplicado um ColorOverlay
+    (Qt5Compat.GraphicalEffects) que usa só o alfa/silhueta do desenho e
+    pinta com a cor desejada — assim o logotipo se adapta ao tema
+    claro/escuro. Fallback: nome em fonte "Noto Serif" se o arquivo não
+    existir.
+
+Fonte serif: aplicado font.family: "Noto Serif" no nome do provedor
+(cabeçalho do widget + config), pedido para lembrar a tipografia do
+site do Claude (Copernicus, fonte proprietária não disponível
+localmente — Noto Serif foi a alternativa visualmente próxima e
+amplamente disponível em distros KDE).
+
+Animação de refresh: RotationAnimation (360°, 800ms, loop) no ícone de
+refresh enquanto isFetching é true, no lugar do BusyIndicator separado
+de antes.
+
+
+5. REVISÃO GERAL DE CÓDIGO (a pedido do usuário)
+--------------------------------------------------
+Revisão completa de todos os arquivos, aplicando:
+  - Remoção de import QtQuick.Controls não utilizado em main.qml.
+  - Simplificação do DropShadow: de dois Rectangle sobrepostos (um
+    invisível só como fonte da sombra) para layer.enabled + layer.effect
+    num único Rectangle.
+  - Correção de comentário desatualizado em ProviderIcon.qml (dizia
+    "PNG", já estava usando SVG).
+  - compactRepresentation adicionado a main.qml: antes o widget forçava
+    preferredRepresentation: fullRepresentation sempre; agora só força
+    isso no desktop (Plasmoid.formFactor === PlasmaCore.Types.Planar),
+    e em painel/bandeja mostra só o ProviderIcon (clicável, abre popup
+    com o card completo via root.expanded).
+  - Roda de cores: adicionado slider de brilho (ver item 3).
+  - metadata.json: Website trocado de "https://kde.org" (placeholder
+    incorreto) para "https://github.com/de-andreluiz" (perfil do
+    usuário; repositório específico do widget ainda será criado).
+  - Centralização dos caminhos de imagem: "../images/" estava
+    hardcoded separadamente em ProviderIcon.qml e ProviderWordmark.qml;
+    movido para dentro de Providers.js (var imagesDir), único lugar que
+    precisa saber a estrutura de pastas.
+
+Ponto identificado mas não seria "bug" e sim lacuna de escopo:
+  fetchApiUsage() era 100% mockado (só um Timer de 1s ligando/desligando
+  isFetching) — nenhum dado real de uso de API era buscado. Isso levou
+  à seção 6.
+
+
+6. INTEGRAÇÃO DE DADOS REAIS — CLAUDE
+--------------------------------------------------
+6.1. Investigação inicial
+  - Explicado que API keys "de verdade" (console.anthropic.com,
+    platform.openai.com, aistudio.google.com) NÃO dão acesso ao dado de
+    "% da sessão/semana da assinatura" — isso é específico do plano
+    Pro/Max (Claude) e não existe endpoint público documentado pra isso.
+  - O usuário mostrou a tela "Configurações > Uso" do claude.ai (mostra
+    exatamente sessão/semana em %) — confirmado que essa tela usa uma
+    API PRIVADA do próprio claude.ai (não documentada), autenticada por
+    cookie de sessão do navegador, não por API key.
+
+6.2. Descoberta do endpoint
+  - Usuário abriu o DevTools do Firefox (Rede/Network), achou a
+    requisição GET https://claude.ai/api/organizations/<ORG_ID>/usage
+  - Copiou como cURL e colou no chat (continha cookies de sessão
+    sensíveis: sessionKey, cf_clearance, __cf_bm, entre outros).
+  - Testado com curl -> HTTP 200, JSON retornado com exatamente os
+    campos necessários:
+      five_hour.utilization / five_hour.resets_at   (sessão atual)
+      seven_day.utilization / seven_day.resets_at   (limite semanal)
+  - Testado o mínimo de headers necessário: Cookie (só sessionKey +
+    cf_clearance + __cf_bm) + User-Agent de navegador real + Accept.
+    Sem User-Agent -> 403 (bloqueio do Cloudflare).
+
+6.3. Primeira implementação (depois substituída — ver 6.4)
+  - Criado ~/.config/llm-quota-widget/secrets.json guardando orgId +
+    cookie (FORA do repositório git, permissão 600/700).
+  - Criado ~/.config/llm-quota-widget/fetch-claude-usage.sh: lê o
+    secrets.json (via python3 -c ...) e roda o curl com o Cookie e
+    User-Agent corretos, imprime o JSON no stdout.
+  - main.qml passou a rodar esse script via
+    Plasma5Support.DataSource (engine: "executable"), parseando o
+    stdout como JSON e aplicando na UI (applyClaudeUsage()).
+    Motivo de usar DataSource/shell em vez de XMLHttpRequest puro do
+    QML: (a) XHR não pode ler arquivo local por padrão no Qt6
+    ("XMLHttpRequest: Using GET on a local file is disabled by
+    default"); (b) mesmo migrando a leitura do secrets.json pro shell,
+    o XHR do QML pro claude.ai retornava 403 — Qt não deixa
+    sobrescrever o header User-Agent de fato no XHR, e o Cloudflare
+    exige um User-Agent de navegador real.
+  - Funcionou fim-a-fim: números batendo exatamente com a tela real do
+    claude.ai (ex.: sessão 25%, semana 59%).
+  - Formatação de datas: "Reinicia em Xh Ymin" (sessão, relativo) e
+    "Reinicia dom., 04:59" (semana, dia da semana abreviado). Corrigido
+    bug de locale: Qt.formatDateTime(..., "ddd") saía em inglês ("Sun")
+    mesmo com o resto da UI em português — trocado por um array fixo
+    de abreviações PT-BR (dom., seg., ter., qua., qui., sex., sáb.) em
+    vez de depender do locale do sistema.
+
+6.4. Tentativa de automação total (renovação automática do cookie)
+  - Objetivo: eliminar a necessidade de repetir manualmente o processo
+    de DevTools quando o cf_clearance/sessionKey expirasse.
+  - Ideia: ler os cookies direto do cookies.sqlite do Firefox (mesma
+    técnica do yt-dlp --cookies-from-browser), já que o navegador
+    renova o cf_clearance sozinho enquanto o usuário navega.
+  - Vários comandos de diagnóstico foram bloqueados pelo classificador
+    de segurança do Claude Code (ações consideradas sensíveis: ler
+    banco de cookies inteiro, busca ampla por arquivos de credenciais
+    no $HOME) — o assistente não tentou contornar, pediu pro usuário
+    rodar os comandos manualmente.
+  - Processo de diagnóstico (todo feito pelo usuário via terminal):
+      1. Perfil ~/.mozilla/firefox/tkohv3yu.default-release -> 0
+         cookies de claude.ai.
+      2. Descoberto que o Firefox é instalado via Flatpak
+         (org.mozilla.firefox) -> perfil real fica em
+         ~/.var/app/org.mozilla.firefox/firefox/<profile>/cookies.sqlite
+      3. Mesmo no caminho certo do Flatpak, contagem de cookies
+         claude.ai = 0 (mas 657 cookies no total, então não era modo
+         privado/nunca-salvar).
+      4. profiles.ini confirmou tkohv3yu.default-release como o
+         perfil Default=1 (o que o Firefox realmente abre).
+      5. GNOME Web (Epiphany) também checado -> 0 cookies claude.ai.
+  - Conclusão: o cookie mais recente (o que foi usado com sucesso via
+    cURL) provavelmente fica no arquivo auxiliar cookies.sqlite-wal,
+    que o sandbox do Flatpak não estava expondo de forma legível pra
+    leitura externa. Abandonada a rota de ler o banco de cookies
+    diretamente — custo/benefício não compensava pra um widget pessoal.
+
+6.5. Solução final adotada: bookmarklet + clipboard
+  - Em vez de tentar ler cookies HttpOnly via JS (impossível — JS não
+    tem acesso a cookies HttpOnly, só o navegador pode enviá-los nas
+    próprias requisições), o bookmarklet faz o fetch() DIRETO na aba
+    do claude.ai, usando credentials: 'include' (o navegador anexa os
+    cookies sozinho, incluindo os HttpOnly) — e copia o JSON resultante
+    pro clipboard.
+  - main.qml foi reescrito: removida toda a lógica de
+    Plasma5Support.DataSource + shell script + secrets.json. No lugar,
+    um TextEdit invisível (clipboardEdit) lê o clipboard via
+    text=""; paste(); text — padrão QML clássico pra ler clipboard sem
+    um componente dedicado.
+  - fetchApiUsage() agora: se o provedor atual for "claude", tenta
+    fazer JSON.parse do conteúdo do clipboard e aplicar via
+    applyClaudeUsage(); se falhar (clipboard sem dados válidos), só
+    mantém os valores anteriores e loga um aviso no console — sem
+    quebrar a UI.
+  - Removidos ~/.config/llm-quota-widget/secrets.json e
+    fetch-claude-usage.sh (não são mais necessários — NENHUM cookie
+    fica salvo em disco nessa versão final, o que é mais seguro que a
+    abordagem anterior).
+  - Criados os arquivos de referência do bookmarklet:
+      tools/claude-usage-bookmarklet.js  (versão legível/comentada)
+      tools/claude-usage-bookmarklet.txt (versão minificada, pronta
+                                           pra colar como URL de favorito
+                                           no Firefox — começa com
+                                           "javascript:")
+  - Testado e confirmado funcionando pelo usuário: bookmarklet clicado
+    numa aba real do claude.ai -> alerta "Uso do Claude copiado!" ->
+    clique no refresh do widget -> números reais atualizados.
+  - Detalhe de uso descoberto na prática: o bookmarklet PRECISA ser
+    clicado com uma aba do claude.ai ativa (não funciona em
+    about:newtab ou outro domínio) — dá erro de rede
+    (NetworkError/cross-origin) se rodar fora do domínio claude.ai.
+
+
+7. ESTADO ATUAL DO PROJETO
+--------------------------------------------------
+Estrutura de arquivos (dentro do repositório git ~/llm-quota-widget):
+
+  contents/
+    config/
+      config.qml
+      main.xml
+    images/
+      claude.svg, claude-text.svg
+      codex.svg,  codex-text.svg
+      gemini.svg, gemini-text.svg
+    ui/
+      main.qml                 (widget principal)
+      ColorWheel.qml            (roda de cores + slider de brilho)
+      ProviderIcon.qml          (ícone-símbolo do provedor, com fallback)
+      ProviderWordmark.qml      (logotipo do provedor, com fallback)
+      Providers.js              (lista de provedores, fonte única)
+      RoundedProgressBar.qml    (barra de progresso custom)
+      UsageCard.qml             (card reutilizável Sessão/Semana)
+      config/
+        ConfigGeneral.qml       (tela "Configurar Widget…")
+  metadata.json
+  tools/
+    claude-usage-bookmarklet.js   (referência comentada)
+    claude-usage-bookmarklet.txt  (versão pra colar no Firefox)
+    RESUMO-DO-PROJETO.txt         (este arquivo)
+
+Funcionalidades funcionando hoje:
+  - Provedor selecionável (Claude/Codex/Gemini) com ícone e logotipo
+    oficiais, cor de destaque própria.
+  - Tema Claro/Escuro independente, com cor de fundo customizável por
+    tema (roda de cores com controle de brilho).
+  - Sombra, cantos arredondados, barra de progresso animada,
+    tipografia serif no nome do provedor.
+  - compactRepresentation (ícone) quando em painel; card completo
+    direto quando no desktop.
+  - Dados REAIS de uso pro Claude (sessão + limite semanal, com horário
+    de reset), via bookmarklet + clipboard — sem nenhuma credencial
+    salva em disco.
+  - Codex e Gemini ainda em modo mock (57%/56% fixos) — integração real
+    ainda não foi feita pra esses dois.
+
+Pendências / próximos passos possíveis (não feitos ainda):
+  - Repetir o processo do item 6 pra Codex (ChatGPT/OpenAI) e Gemini
+    (Google), incluindo achar os endpoints privados equivalentes (se
+    existirem) e criar bookmarklets análogos.
+  - Usuário disse que vai criar um repositório próprio no GitHub pra
+    esse widget (metadata.json já aponta pro perfil
+    https://github.com/de-andreluiz, mas ainda não pro repo específico).
+  - Ícone do metadata.json (KPlugin.Icon) ainda é o genérico
+    "network-server" — poderia usar um dos SVGs baixados.
+
+
+8. AVISOS IMPORTANTES DE SEGURANÇA (vale lembrar no futuro)
+--------------------------------------------------
+  - O endpoint /api/organizations/<id>/usage do claude.ai NÃO é uma API
+    oficial/documentada — pode mudar de formato ou ser bloqueado sem
+    aviso a qualquer momento, já que não faz parte do produto pago
+    (console.anthropic.com).
+  - Nenhuma credencial (cookie de sessão, sessionKey, etc.) deve ser
+    commitada no repositório git nem publicada. Tudo que foi colado no
+    chat (cURL com cookies) já deve ser considerado potencialmente
+    exposto — se em algum momento a sessão parecer comprometida, vale
+    fazer logout de todas as sessões em claude.ai > Configurações >
+    Segurança.
+  - A solução final (bookmarklet + clipboard) foi escolhida
+    especificamente por NÃO precisar guardar nenhum cookie em disco,
+    o que é mais seguro que a primeira versão (secrets.json).

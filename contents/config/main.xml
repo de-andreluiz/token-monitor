@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="provider" type="String">
+      <default>claude</default>
+    </entry>
+    <entry name="theme" type="String">
+      <default>light</default>
+    </entry>
+    <entry name="bgColorLight" type="String">
+      <default>#ffffff</default>
+    </entry>
+    <entry name="bgColorDark" type="String">
+      <default>#1f2937</default>
+    </entry>
+  </group>
+</kcfg>
