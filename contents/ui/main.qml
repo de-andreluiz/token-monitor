@@ -75,7 +75,7 @@ PlasmoidItem {
     // em segundo plano (veja tools/claude-usage-service). Esse serviço guarda
     // sua sessão logada num Chromium headless próprio, então o widget nunca
     // precisa lidar com cookies nem pedir nada manual no dia a dia.
-    readonly property string usageFilePath: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.local/share/llm-quota-widget/claude-usage.json"
+    readonly property string usageFilePath: String(StandardPaths.writableLocation(StandardPaths.HomeLocation)).replace("file://", "") + "/.local/share/llm-quota-widget/claude-usage.json"
 
     Plasma5Support.DataSource {
         id: executable

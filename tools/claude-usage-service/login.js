@@ -10,13 +10,14 @@
 const fs = require("fs");
 const { chromium } = require("playwright");
 const { dataDir, profileDir } = require("./paths");
+const { contextOptions } = require("./browser-context");
 
 async function main() {
     fs.mkdirSync(dataDir, { recursive: true });
 
-    const context = await chromium.launchPersistentContext(profileDir, {
-        headless: false,
-        viewport: { width: 1200, height: 800 },
+    const context = await chromium.launchPersistentContext(profileDir, contextOptions({ headless: false }));
+    await context.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
     });
 
     const page = context.pages()[0] || (await context.newPage());

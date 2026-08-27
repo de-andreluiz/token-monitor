@@ -10,6 +10,7 @@
 const fs = require("fs");
 const { chromium } = require("playwright");
 const { dataDir, profileDir, outputFile } = require("./paths");
+const { contextOptions } = require("./browser-context");
 
 // ID da organização no claude.ai (Configurações → Uso → aba de rede mostra
 // esse valor na URL do endpoint). Troque aqui se você usar outra conta/org.
@@ -21,8 +22,9 @@ async function main() {
         process.exit(1);
     }
 
-    const context = await chromium.launchPersistentContext(profileDir, {
-        headless: true,
+    const context = await chromium.launchPersistentContext(profileDir, contextOptions({ headless: true }));
+    await context.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
     });
 
     try {
