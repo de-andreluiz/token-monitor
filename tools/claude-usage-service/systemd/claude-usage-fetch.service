@@ -1,0 +1,7 @@
+[Unit]
+Description=Busca dados de uso do claude.ai pro Token Monitor
+
+[Service]
+Type=oneshot
+WorkingDirectory=__SERVICE_DIR__
+ExecStart=/usr/bin/npm run fetch

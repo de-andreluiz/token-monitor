@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
+import QtCore
 import Qt5Compat.GraphicalEffects
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
 
 import "Providers.js" as Providers
@@ -68,43 +70,54 @@ PlasmoidItem {
         root.weeklyRightText = root.weeklyUsagePct + "% usado";
     }
 
-    // Lê os dados de uso do clipboard: o bookmarklet salvo no Firefox busca
-    // o endpoint de uso direto na aba do claude.ai (o navegador anexa o
-    // cookie de sessão sozinho, mesmo sendo HttpOnly) e copia o JSON pronto
-    // pro clipboard. Assim o widget nunca precisa guardar nenhum cookie em
-    // disco — só clicar o bookmarklet e depois no refresh aqui.
-    TextEdit {
-        id: clipboardEdit
-        visible: false
+    // Lê os dados de uso de um arquivo local (~/.local/share/llm-quota-widget/
+    // claude-usage.json), mantido atualizado sozinho por um serviço systemd
+    // em segundo plano (veja tools/claude-usage-service). Esse serviço guarda
+    // sua sessão logada num Chromium headless próprio, então o widget nunca
+    // precisa lidar com cookies nem pedir nada manual no dia a dia.
+    readonly property string usageFilePath: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.local/share/llm-quota-widget/claude-usage.json"
 
-        function readClipboard() {
-            text = "";
-            paste();
-            return text;
+    Plasma5Support.DataSource {
+        id: executable
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: (sourceName, data) => {
+            disconnectSource(sourceName);
+            try {
+                root.applyClaudeUsage(JSON.parse(data["stdout"]));
+            } catch (e) {
+                console.warn("llm-quota-widget: sem dados de uso do Claude ainda em " + root.usageFilePath + ". Veja tools/claude-usage-service para configurar o serviço em segundo plano.");
+            }
+            root.isFetching = false;
         }
     }
 
     function fetchApiUsage() {
         if (root.isFetching) return;
         root.isFetching = true;
-        fetchDelay.start();
+        if (root.currentProvider.id === "claude") {
+            executable.connectSource("cat \"" + root.usageFilePath + "\"");
+        } else {
+            fetchDelay.start(); // sem dados reais ainda: só dá tempo do spin ser visível
+        }
     }
 
     Component.onCompleted: fetchApiUsage()
 
+    // Além do refresh manual, busca de novo periodicamente — o serviço em
+    // segundo plano já atualiza o arquivo sozinho a cada ~10 min.
+    Timer {
+        interval: 5 * 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: root.fetchApiUsage()
+    }
+
     Timer {
         id: fetchDelay
-        interval: 350 // só pra dar tempo do spin do ícone ser visível
-        onTriggered: {
-            if (root.currentProvider.id === "claude") {
-                try {
-                    root.applyClaudeUsage(JSON.parse(clipboardEdit.readClipboard()));
-                } catch (e) {
-                    console.warn("llm-quota-widget: clipboard sem dados válidos do Claude. Clique no bookmarklet em claude.ai e tente de novo.");
-                }
-            }
-            root.isFetching = false;
-        }
+        interval: 350
+        onTriggered: root.isFetching = false
     }
 
     compactRepresentation: MouseArea {

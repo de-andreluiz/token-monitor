@@ -1,0 +1,14 @@
+{
+  "name": "claude-usage-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servico local que mantem uma sessao logada no claude.ai e busca periodicamente os dados de uso, pro Token Monitor ler.",
+  "type": "commonjs",
+  "scripts": {
+    "login": "node login.js",
+    "fetch": "node fetch-usage.js"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

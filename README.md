@@ -70,27 +70,35 @@ Clique com o botão direito no widget → **Configurar Widget…** para:
 O Claude não oferece uma API pública para consultar "quanto da minha
 assinatura Pro/Max eu já usei" — esse dado só existe na tela **Configurações
 → Uso** do próprio claude.ai, atendida por um endpoint interno e não
-documentado, autenticado pelo cookie da sua sessão logada no navegador.
+documentado, autenticado pela sessão logada no navegador (e protegido por
+verificação anti-bot da Cloudflare).
 
-Para não precisar guardar nenhum cookie de sessão em disco, o Token Monitor
-usa um **bookmarklet**: um favorito do navegador que, ao ser clicado numa
-aba aberta do claude.ai, busca os limites de uso usando a própria
-autenticação da aba e copia o resultado para a área de transferência. O
-widget lê esse conteúdo ao clicar no botão de atualizar.
+Pra não depender de copiar cookie manualmente (nem de ficar repetindo isso
+toda vez que a verificação expira), o Token Monitor usa um **serviço local**
+em [`tools/claude-usage-service`](tools/claude-usage-service): um Chromium
+controlado via [Playwright](https://playwright.dev/), com um perfil próprio
+onde você faz login **uma vez**. Um timer do `systemd --user` roda esse
+Chromium headless a cada ~10 minutos, deixando a verificação da Cloudflare
+se renovar sozinha (como um navegador de verdade faria) e salvando o
+resultado em `~/.local/share/llm-quota-widget/claude-usage.json`. O widget
+só lê esse arquivo — nenhum cookie passa pela mão do widget em si.
 
 **Configuração (uma vez só):**
 
-1. No Firefox, crie um novo favorito.
-2. Cole como endereço o conteúdo de [`tools/claude-usage-bookmarklet.txt`](tools/claude-usage-bookmarklet.txt).
+```bash
+cd tools/claude-usage-service
+./install.sh        # instala dependências, o Chromium do Playwright e o timer
+npm run login        # abre uma janela pra você logar no claude.ai
+```
 
-**Uso do dia a dia:**
-
-1. Com uma aba do claude.ai aberta e logada, clique no favorito.
-2. Clique no ícone de atualizar do widget.
+Depois disso é só usar o widget normalmente — o arquivo de uso se mantém
+atualizado sozinho em segundo plano. Veja mais detalhes, incluindo como
+checar os logs, no [README do serviço](tools/claude-usage-service/README.md).
 
 > Como não é uma API oficial, esse endpoint pode mudar ou parar de
 > funcionar sem aviso a qualquer momento — se isso acontecer, o widget
-> volta a mostrar os últimos valores conhecidos.
+> volta a mostrar os últimos valores conhecidos, e o serviço avisa nos logs
+> que é preciso rodar `npm run login` de novo.
 
 Codex e Gemini ainda **não têm** integração de dados reais — por enquanto
 mostram valores de exemplo fixos.
@@ -115,8 +123,11 @@ contents/
         └── ConfigGeneral.qml      # Tela "Configurar Widget…"
 metadata.json
 tools/
-├── claude-usage-bookmarklet.js   # Bookmarklet (versão legível)
-├── claude-usage-bookmarklet.txt  # Bookmarklet (pronto pra colar)
+├── claude-usage-service/          # Serviço local (login + fetch periódico)
+│   ├── install.sh                  # Instala dependências e o timer do systemd
+│   ├── login.js                     # Login manual (uma vez), salva a sessão
+│   ├── fetch-usage.js                # Busca o uso e grava o JSON local
+│   └── systemd/                       # Unit files do timer/service
 └── RESUMO-DO-PROJETO.txt          # Changelog detalhado do projeto
 ```
 

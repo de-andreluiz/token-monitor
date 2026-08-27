@@ -6,3 +6,7 @@
 
 # Nunca versionar credenciais/config local
 secrets.json
+
+# claude-usage-service
+tools/claude-usage-service/node_modules/
+tools/claude-usage-service/package-lock.json
