@@ -1,0 +1,17 @@
+bora deds
+
+pode deletar isso daqui depois é so para voce ficar sabendo:
+
+Resumao aqui
+
+- ** o `ORG_ID` deixou de ser fixo no código** — antes estava hardcoded em `fetch-usage.js`, amarrado a sua conta. Agora vem de `tools/claude-usage-service/config.js`, configurável por variável de ambiente (`CLAUDE_ORG_ID`) ou por um arquivo local (`~/.local/share/llm-quota-widget/config.json`) — nunca commitado. Isso resolvia um erro de "sessão expirada" (403/404) que na real era conta/organização errada, não problema de login.
+- **`package-lock.json` passou a ser versionado** — antes estava no `.gitignore`. Sem ele, cada `npm install` podia puxar uma versão diferente do Playwright, dessincronizando do binário do Chromium já baixado, o que causava o erro `Executable doesn't exist... npx playwright install`.
+- **Tratamento de erro no `fetch-usage.js`** — se a Cloudflare intercepta a requisição com uma página de verificação (HTML) em vez do JSON esperado, o script agora avisa isso claramente em vez de quebrar com uma stack trace genérica.
+
+
+- **Suporte a Codex/Gemini removido por enquanto** — `Providers.js` agora lista só o Claude (fonte única usada pelo card, pelo seletor da config e pelos ícones). Os SVGs de `codex.svg`, `codex-text.svg`, `gemini.svg`, `gemini-text.svg` foram removidos de `contents/images/`. `main.qml` simplificado (removida a lógica de mock que só existia pra provedores sem integração real). `metadata.json` e `README.md` atualizados pra não citar mais OpenAI/Gemini.
+- `install.sh` agora avisa explicitamente se falta configurar o `ORG_ID` na primeira instalação.
+
+Limitacoes pay to win
+
+- A integração de dados reais do Claude **depende de conta Pro ou Max** — a tela `Configurações → Uso` do claude.ai (de onde vem o `ORG_ID` e os próprios dados) não existe em contas Free. Sem isso, o widget mostra só os valores de exemplo (mock).
