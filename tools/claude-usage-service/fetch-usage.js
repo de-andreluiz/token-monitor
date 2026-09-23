@@ -10,11 +10,8 @@
 const fs = require("fs");
 const { chromium } = require("playwright");
 const { dataDir, profileDir, outputFile } = require("./paths");
+const { orgId } = require("./config");
 const { contextOptions } = require("./browser-context");
-
-// ID da organização no claude.ai (Configurações → Uso → aba de rede mostra
-// esse valor na URL do endpoint). Troque aqui se você usar outra conta/org.
-const ORG_ID = "a874268f-9d05-4d33-9af0-1b4804e94a9e";
 
 async function main() {
     if (!fs.existsSync(profileDir)) {
@@ -35,17 +32,38 @@ async function main() {
             const res = await fetch(`https://claude.ai/api/organizations/${orgId}/usage`, {
                 credentials: "include",
             });
-            return { status: res.status, body: await res.text() };
-        }, ORG_ID);
+            return {
+                status: res.status,
+                body: await res.text(),
+                contentType: res.headers.get("content-type") || "",
+            };
+        }, orgId);
 
         if (result.status !== 200) {
-            console.error(`Sessão parece ter expirado (status ${result.status}). Rode: npm run login`);
+            console.error(
+                `Requisição falhou com status ${result.status}. Isso pode ser:\n` +
+                    "  - sessão expirada -> rode: npm run login\n" +
+                    "  - ORG_ID incorreto/de outra conta -> confira a config (veja config.js)"
+            );
             process.exit(1);
         }
 
-        const data = JSON.parse(result.body);
+        let data;
+        try {
+            data = JSON.parse(result.body);
+        } catch (parseErr) {
+            console.error(
+                "Resposta não é JSON válido — provavelmente a verificação anti-bot da\n" +
+                    "Cloudflare interceptou a requisição (página de desafio) em vez do\n" +
+                    "endpoint de uso. Tente rodar de novo em alguns segundos; se persistir,\n" +
+                    "refaça o login: npm run login\n" +
+                    "Início da resposta recebida: " + result.body.slice(0, 200)
+            );
+            process.exit(1);
+        }
+
         if (!data.five_hour || !data.seven_day) {
-            console.error("Resposta inesperada da API de uso:", result.body);
+            console.error("Resposta inesperada da API de uso (formato mudou?):", result.body);
             process.exit(1);
         }
 

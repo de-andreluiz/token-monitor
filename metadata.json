@@ -3,7 +3,7 @@
     "KPlugin": {
         "Id": "com.andreluiz.llmquota",
         "Name": "LLM Quota Monitor",
-        "Description": "Monitora limites de tokens da API do Claude, OpenAI e Gemini.",
+        "Description": "Monitora limites de tokens da API do Claude.",
         "Version": "1.0",
         "Category": "Utilities",
         "Icon": "network-server",

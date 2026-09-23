@@ -4,12 +4,15 @@
 // nome exibido, glifo do cabeçalho e cor de destaque.
 // Caminho das imagens relativo a contents/ui/ (onde ProviderIcon.qml e
 // ProviderWordmark.qml vivem) — único lugar que precisa saber essa estrutura.
+//
+// Por enquanto só o Claude tem integração de dados reais (veja
+// tools/claude-usage-service). Codex e Gemini foram removidos daqui por
+// enquanto — pra reativar no futuro, basta acrescentar de volta um objeto
+// com id/name/glyph/color/icon/wordmark nesta lista.
 var imagesDir = "../images/";
 
 var list = [
-    { id: "claude", name: "Claude", glyph: "✳️", color: "#d97757", icon: imagesDir + "claude.svg", wordmark: imagesDir + "claude-text.svg" },
-    { id: "codex", name: "Codex", glyph: "◐", color: "#6366f1", icon: imagesDir + "codex.svg", wordmark: imagesDir + "codex-text.svg" },
-    { id: "gemini", name: "Gemini", glyph: "✦", color: "#4285f4", icon: imagesDir + "gemini.svg", wordmark: imagesDir + "gemini-text.svg" }
+    { id: "claude", name: "Claude", glyph: "✳️", color: "#d97757", icon: imagesDir + "claude.svg", wordmark: imagesDir + "claude-text.svg" }
 ];
 
 function byId(id) {
